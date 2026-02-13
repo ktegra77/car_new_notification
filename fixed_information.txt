@@ -1,0 +1,16 @@
+"name": "メルカリ",
+"url": "https://jp.mercari.com/search?keyword=%E3%83%95%E3%82%A3%E3%83%83%E3%83%88&category_id=10865&sort=created_time&order=desc",
+"name": "ヤフオク",
+"url": "https://auctions.yahoo.co.jp/category/list/26360/?select=22&auccat=26360&b=1&n=50&mode=1&brand_id=8185&spec=C_4%3A91%2C917%2C5379&slider=",
+"name": "カーセンサー",
+"url": "https://www.carsensor.net/usedcar/search.php?STID=CS210610&SORT=19&CARC=HO_S028&PMAX=500000&SLST=MT",
+"name": "グーネット",
+"url": "https://www.goo-net.com/php/search/summary.php?car_cd=10201029&maker_cd=1020&pref_c=01%2C02%2C03%2C04%2C05%2C06%2C07%2C08%2C09%2C10%2C11%2C12%2C13%2C14%2C15%2C16%2C17%2C18%2C19%2C20%2C21%2C22%2C23%2C24%2C25%2C26%2C27%2C28%2C29%2C30%2C31%2C32%2C33%2C34%2C35%2C36%2C37%2C38%2C39%2C40%2C41%2C42%2C43%2C44%2C45%2C46%2C47&price2=60&car_price=1&total_payment=1&mission=MT&baitai=goo&search_type=car_search&current=0&page=1&sort_value=desc&sort_flag=update_date_sort&disp_mode=detail_list&door_cd_flg=1&limit=50&car_list=10201029&integration_car_cd=10201029%7C&new_car_cds_list=10201029&search_flg=1&fancy_box=0&model_grade_name=%5B%5D&templates=0&area_nap_flg=1&custom_flg=0",
+"name": "ジモティー",
+"url": "https://jmty.jp/all/car-hon/g-2346?model_year%5Bmin%5D=&model_year%5Bmax%5D=&mileage%5Bmin%5D=&mileage%5Bmax%5D=&min=&max=600000&commit=%E6%A4%9C%E7%B4%A2",
+
+
+WEBHOOK_URL = "https://discord.com/api/webhooks/1471129979545977086/qR3Y6Z054rLxDffdqgoB6oQWuTZWmn6s0AZ5rkpGFIF49gp-VwSG9rQWQutqh333iEie"
+
+
+
