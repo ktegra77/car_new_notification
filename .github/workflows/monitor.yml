@@ -1,0 +1,42 @@
+name: Vehicle Monitor Auto Run
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # 10分ごとに実行
+  workflow_dispatch: # 手動実行ボタンを有効化
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 履歴ファイルを書き戻すために必要
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run Vehicle Monitor
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python main.py
+
+      - name: Commit and Push history files
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add history_*.txt
+          # 変更がある場合のみコミット
+          if ! git diff --cached --exit-code; then
+            git commit -m "Update vehicle history [skip ci]"
+            git push
+          fi

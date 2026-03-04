@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Secrets
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+pw-browser/__pycache__/

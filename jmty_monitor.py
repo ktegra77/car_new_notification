@@ -1,89 +1,115 @@
+import logging
+import re
 import time
 import random
-import re
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+from typing import List, Dict
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
-def get_jmty_items(url):
-    options = Options()
-    options.add_argument('--headless')
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+# ログ設定
+logger = logging.getLogger(__name__)
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+BASE_URL = "https://jmty.jp"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-    items = []
-    try:
-        driver.get(url)
-        
-        # 待機対象を「aタグ」など、より確実にあるものに変更
-        wait = WebDriverWait(driver, 15)
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "a")))
+def fetch_listings(search_url: str) -> List[Dict[str, str]]:
+    """
+    ジモティーの検索結果ページから車両情報を取得します。
+    ※Playwrightを使用して動的コンテンツに対応します。
 
-        time.sleep(random.uniform(2, 5)) # 描画完了を待つ
+    Args:
+        search_url (str): 取得対象のURL
 
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        
-        # --- 抽出戦略の変更 ---
-        # 1. まず「中古車詳細」へのリンク（/articles/を含むaタグ）をすべて探す
-        detail_links = soup.find_all("a", href=re.compile(r"/article"))
-        # 重複を避けるためのセット
-        seen_ids = set()
+    Returns:
+        List[Dict[str, str]]: 車両情報（id, title, price, url）のリスト
+    """
+    vehicle_items: List[Dict[str, str]] = []
+    seen_ids = set()
 
-        for link in detail_links:
-            href = link.get("href")
-            if "adclick" in href or not href: continue
+    with sync_playwright() as p:
+        try:
+            # ブラウザ起動
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(user_agent=USER_AGENT)
+            page = context.new_page()
+
+            # ページ遷移と待機
+            page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+            # aタグが表示されるまで待機
+            page.wait_for_selector("a", timeout=15000)
             
-            item_id = href.split("/")[-1]
-            if item_id in seen_ids: continue
-            
-            # --- 修正箇所：確実に「投稿の塊」まで遡る ---
-            # リンク(a) から見て、リストの1項目(li) または 記事(article) を探す
-            parent = link.find_parent(["li", "article"])
-            if not parent: continue
+            # 人間味のある待機
+            time.sleep(random.uniform(2, 5))
 
-            # タイトルの取得（parent全体から "title" を含むクラスを再検索）
-            title_tag = parent.find(class_=lambda x: x and "title" in x)
-            if not title_tag:
-                # クラス名で見つからない場合、imgタグのalt属性から取る（ジモティーでは有効な手です）
-                img_tag = parent.find("img", alt=True)
-                title = img_tag["alt"] if img_tag else "タイトル不明"
-            else:
-                title = title_tag.get_text(strip=True)
+            # HTMLを取得して解析
+            content = page.content()
+            soup = BeautifulSoup(content, "html.parser")
 
-            # 価格の取得
-            price_tag = parent.find(class_=lambda x: x and "price" in x)
-            if price_tag:
-                price_raw = price_tag.get_text(strip=True)
-                price_num = re.sub(r"\D", "", price_raw)
-                price = f"{price_num}円" if price_num else price_raw
-            else:
+            # 抽出ロジック
+            detail_links = soup.find_all("a", href=re.compile(r"/article"))
+
+            for link in detail_links:
+                item_id = "ID不明"
+                href = link.get("href", "")
+                if not href: continue
+                
+                # IDの抽出
+                item_id = href.split("/")[-1]
+                if item_id in seen_ids:
+                    continue
+                
+                # 投稿の親要素（リスト項目）まで遡る
+                parent = link.find_parent(["li", "article"])
+                if not parent:
+                    continue
+
+                # タイトルの取得
+                title = "タイトル不明"
+
+                title_tag = parent.find(class_=lambda x: x and "title" in x)
+                if title_tag:
+                    title = title_tag.get_text(strip=True)
+                else:
+                    img_tag = parent.find("img", alt=True)
+                    if img_tag:
+                        title = img_tag["alt"]
+
+                # 価格の取得
                 price = "価格不明"
 
-            items.append({
-                "id": item_id,
-                "title": title,
-                "price": price,
-                "url": "https://jmty.jp" + href if href.startswith("/") else href
-            })
-            seen_ids.add(item_id)
+                important_field = parent.find(class_="p-item-most-important")
+                if important_field:
+                    price_raw = important_field.get_text(strip=True)
+                    price_match = re.search(r"([\d,]+)円", price_raw)
 
-    except Exception as e:
-        print(f"ジモティーでエラー発生: {e}")
-    finally:
-        driver.quit()
+                    if price_match:
+                        price_num = re.sub(r"\D", "", price_match.group(1))
+                        if price_num:
+                            price = f"{int(float(price_num)):,}円"
+
+                full_url = f"{BASE_URL}{href}" if href.startswith("/") else href
+
+                vehicle_items.append({
+                    "id": item_id,
+                    "title": title,
+                    "price": price,
+                    "url": full_url
+                })
+                seen_ids.add(item_id)
+
+        except Exception as e:
+            logger.warning(f"ID:{item_id} ジモティー解析中にエラーが発生しました: {e}")
         
-    return items
+        finally:
+            browser.close()
+    
+    return vehicle_items
 
 if __name__ == "__main__":
-    TARGET_URL = "https://jmty.jp/all/car-hon/g-2346?model_year%5Bmin%5D=&model_year%5Bmax%5D=&mileage%5Bmin%5D=&mileage%5Bmax%5D=&min=&max=600000&commit=%E6%A4%9C%E7%B4%A2"
-    results = get_jmty_items(TARGET_URL)
+    logging.basicConfig(level=logging.INFO)
+    TEST_URL = "https://jmty.jp/all/car-hon/g-2346?model_year%5Bmin%5D=&model_year%5Bmax%5D=&mileage%5Bmin%5D=&mileage%5Bmax%5D=&min=&max=600000&commit=%E6%A4%9C%E7%B4%A2"
+    results = fetch_listings(TEST_URL)
+    
+    print(f"取得件数: {len(results)}件")
     for i, item in enumerate(results, 1):
-        print(f"{i}台目 ID: {item['id']} | {item['title']} | 価格: {item['price']}")
+        print(f"{i}台目: ID: {item['id']} | {item['title']} | 価格：{item['price']}")
