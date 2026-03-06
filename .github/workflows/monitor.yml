@@ -2,7 +2,7 @@ name: Vehicle Monitor Auto Run
 
 on:
   schedule:
-    - cron: "*/10 * * * *" # 10分おき（目安）に変更
+    - cron: "*/20 * * * *" # 20分おき（目安）に変更
   workflow_dispatch: # 手動実行ボタンを有効化
 
 jobs:
